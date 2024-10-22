@@ -6,6 +6,15 @@ export type languagesType = {
   value: string
 }[]
 
+export type LanguageSelectItems = {
+  name: string,
+  description: string,
+  stargazers_count: number,
+  language: string,
+  forks_count: number,
+  open_issues_count: number,
+}
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }

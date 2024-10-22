@@ -4,12 +4,13 @@ import './App.css'
 // import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select'
 import { useTheme } from './components/theme-provider'
 import { Switch } from './components/ui/switch'
-import { useEffect, useState } from 'react'
-import { cn, dataLanguage, languagesType } from './lib/utils'
+import { useEffect, useRef, useState } from 'react'
+import { cn, dataLanguage, LanguageSelectItems, languagesType } from './lib/utils'
 import { Popover, PopoverContent, PopoverTrigger,  } from './components/ui/popover'
 import { Button } from './components/ui/button'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from './components/ui/command'
 import { FixedSizeList } from 'react-window'
+import { Card, CardDescription, CardHeader, CardTitle } from './components/ui/card'
 
 function App() {
   const { setTheme, theme } = useTheme()
@@ -21,37 +22,76 @@ function App() {
   })
   const [stateText, setStateText] = useState('')
   const [languages, setLanguages] = useState<languagesType>([])
+  const [dataGithubSelect, setDataGithubSelect] = useState<LanguageSelectItems>()
   const [open, setOpen] = useState(false)
   const [value, setValue] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
-  const [randomPage, setRandomPage] = useState(1)
-  const [totalPage, setTotalPage] = useState(0)
+  const [perPage, setPerPage] = useState(1)
+
+  const abortControllerRef = useRef(null);
 
   const getDataLanguage = async () => {
     setLoadingState({ ...loadingState, loadDataSelect: true })
+    setStateText('Loading languages...')
     try {
       const data: languagesType = await dataLanguage()
       const filteredData = data.filter((language) => language.value !== "")
-      setLanguages(filteredData) 
-      console.log(data)
+      setLanguages(filteredData)
     } catch (error) {
       console.error("Error fetching languages:", error)
     } finally {
       setLoadingState((prevState) => ({ ...prevState, loadDataSelect: false }))
+      setStateText('Please select a language')
     }
   }
 
-  const getDataLanguageSelect = async (param: string) => {
-    try {
-      const response = await fetch(`https://api.github.com/search/repositories?q=language:${param}&per_page=1&page=${randomPage}`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
+  const getDataLanguageSelect = async ({param, type}: {param: string, type?: string}, abortControllerRef: React.MutableRefObject<AbortController | null>) => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+  }
+
+  // Buat AbortController baru
+  const controller = new AbortController();
+  abortControllerRef.current = controller;  // Simpan controller untuk request ini
+  const signal = controller.signal;
+
+    if (type === 'query') {
+      setStateText('Loading, please wait...')
+      setLoadingState({ ...loadingState, loadSuccess: false })
+      const randomPage = Math.floor(Math.random() * 1000) + 1
+      try {
+        const response = await fetch(`https://api.github.com/search/repositories?q=language:${param}&per_page=${perPage}&page=${randomPage}`,
+          {
+            method: "GET",
+            headers: {
+              "Authorization": `Bearer ${import.meta.env.VITE_GITHUB_TOKEN}`,
+            },
+            signal
+          },
+        );
+        if (!response.ok) {
+          setLoadingState({ ...loadingState, loadError: true })
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        else if (response.ok) {
+          const data = await response.json();
+          const maxPerPage = Math.round(data.total_count / 1000 - 1) // 1000 is the limit per page from github
+          if(value === param && perPage <= maxPerPage) {
+            setPerPage(perPage + 1)
+          }
+          setLoadingState({ ...loadingState, loadSuccess: true })
+          setDataGithubSelect(data.items[0])
+          console.log(dataGithubSelect)
+        }
+      } catch (error) {
+        console.error("Error fetching languages:", error);
+        setLoadingState({ ...loadingState, loadError: true })
+      } finally {
+        setStateText('Please select a language')
+        setLoadingState({ ...loadingState, loadSuccess: true })
       }
-      const data = await response.json();
-      setTotalPage(data.total_count)
-      console.log(data);
-    } catch (error) {
-      console.error("Error fetching languages:", error);
+    } else {
+      setPerPage(1)
     }
   };
 
@@ -61,12 +101,7 @@ function App() {
 
   useEffect(() => {
     getDataLanguage()
-    setStateText('Please select a language')
   }, [])
-
-  useEffect(() => {
-    setRandomPage(Math.floor(Math.random() * totalPage) + 1)
-  }, [getDataLanguageSelect])
 
   return (
     <div className='flex flex-col gap-3'>
@@ -76,7 +111,7 @@ function App() {
       </div>
       <div className="flex flex-col gap-3 items-center">
       <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger asChild>
+          <PopoverTrigger asChild disabled={loadingState.loadDataSelect}>
             <Button
               variant="outline"
               role="combobox"
@@ -111,7 +146,7 @@ function App() {
                         onSelect={(currentValue) => {
                           setValue(currentValue === value ? "" : currentValue)
                           setOpen(false)
-                          getDataLanguageSelect(currentValue)
+                          getDataLanguageSelect(currentValue !== value ? {param: currentValue, type: 'query'} : {param: currentValue}, abortControllerRef)
                         }}
                         style={style}
                       >
@@ -131,9 +166,18 @@ function App() {
             </Command>
           </PopoverContent>
         </Popover>
-        <div className="bg-neutral-200 dark:bg-neutral-800 h-20 w-full rounded-lg flex justify-center items-center text-sm lg:text-base">
-          <span>{stateText}</span>
-        </div>
+        {loadingState.loadSuccess ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>{dataGithubSelect?.name}</CardTitle>
+              <CardDescription>{dataGithubSelect?.description}</CardDescription>
+            </CardHeader>
+          </Card>
+        ) : (
+          <div className={`${loadingState.loadError ? 'dark:bg-red-800 bg-red-500/50' : 'bg-neutral-200 dark:bg-neutral-800' }  h-20 w-full rounded-lg flex justify-center items-center text-sm lg:text-base`}>
+            <span>{stateText}</span>
+          </div>
+        )}
 
         <Switch 
           checked={theme === 'dark'} 
