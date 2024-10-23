@@ -1,16 +1,16 @@
-// import { useState } from 'react'
-import { CaretSortIcon, CheckIcon, GitHubLogoIcon } from '@radix-ui/react-icons'
+import { useEffect, useRef, useState } from 'react'
+import { ArrowRightIcon, CaretSortIcon, CheckIcon, GitHubLogoIcon, QuestionMarkCircledIcon, StarFilledIcon } from '@radix-ui/react-icons'
 import './App.css'
-// import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select'
+import './github-lang-color.css'
 import { useTheme } from './components/theme-provider'
 import { Switch } from './components/ui/switch'
-import { useEffect, useRef, useState } from 'react'
 import { cn, dataLanguage, LanguageSelectItems, languagesType } from './lib/utils'
 import { Popover, PopoverContent, PopoverTrigger,  } from './components/ui/popover'
 import { Button } from './components/ui/button'
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from './components/ui/command'
 import { FixedSizeList } from 'react-window'
-import { Card, CardDescription, CardHeader, CardTitle } from './components/ui/card'
+import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from './components/ui/card'
+import { GitForkIcon } from 'lucide-react'
 
 function App() {
   const { setTheme, theme } = useTheme()
@@ -45,7 +45,7 @@ function App() {
     }
   }
 
-  const getDataLanguageSelect = async ({param, type}: {param: string, type?: string}, abortControllerRef: React.MutableRefObject<AbortController | null>) => {
+  const getDataGithubLanguage = async ({param, type}: {param: string, type?: string}, abortControllerRef: React.MutableRefObject<AbortController | null>) => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
   }
@@ -57,8 +57,8 @@ function App() {
 
     if (type === 'query') {
       setStateText('Loading, please wait...')
-      setLoadingState({ ...loadingState, loadSuccess: false })
-      const randomPage = Math.floor(Math.random() * 1000) + 1
+      setLoadingState({ ...loadingState, loadSuccess: false, loadDataSelect: true, loadError: false })
+      const randomPage = Math.floor(Math.random() * 30)
       try {
         const response = await fetch(`https://api.github.com/search/repositories?q=language:${param}&per_page=${perPage}&page=${randomPage}`,
           {
@@ -70,28 +70,28 @@ function App() {
           },
         );
         if (!response.ok) {
-          setLoadingState({ ...loadingState, loadError: true })
+          setLoadingState({ ...loadingState, loadError: true, loadSuccess: false })
+          setPerPage(1)
+          setStateText('Error fetching repositories')
           throw new Error(`HTTP error! Status: ${response.status}`);
         }
         else if (response.ok) {
           const data = await response.json();
           const maxPerPage = Math.round(data.total_count / 1000 - 1) // 1000 is the limit per page from github
           if(value === param && perPage <= maxPerPage) {
-            setPerPage(perPage + 1)
+            setPerPage((prev) => prev + 1)
+          } else {
+            setPerPage(1)
           }
-          setLoadingState({ ...loadingState, loadSuccess: true })
+          setLoadingState({ ...loadingState, loadSuccess: true, loadError: false })
           setDataGithubSelect(data.items[0])
-          console.log(dataGithubSelect)
         }
       } catch (error) {
         console.error("Error fetching languages:", error);
-        setLoadingState({ ...loadingState, loadError: true })
-      } finally {
-        setStateText('Please select a language')
-        setLoadingState({ ...loadingState, loadSuccess: true })
+        setLoadingState({ ...loadingState, loadError: true, loadSuccess: false })
+        setStateText('Error fetching repositories')
+        setPerPage(1)
       }
-    } else {
-      setPerPage(1)
     }
   };
 
@@ -124,7 +124,7 @@ function App() {
               <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-full p-0">
+          <PopoverContent className="md:w-80 w-full p-1">
             <Command>
               <CommandInput placeholder="Search languages..." className="h-9" value={searchTerm} onValueChange={(value) => setSearchTerm(value)} />
               <CommandList>
@@ -146,7 +146,7 @@ function App() {
                         onSelect={(currentValue) => {
                           setValue(currentValue === value ? "" : currentValue)
                           setOpen(false)
-                          getDataLanguageSelect(currentValue !== value ? {param: currentValue, type: 'query'} : {param: currentValue}, abortControllerRef)
+                          getDataGithubLanguage(currentValue !== value ? {param: currentValue, type: 'query'} : {param: currentValue}, abortControllerRef)
                         }}
                         style={style}
                       >
@@ -167,18 +167,62 @@ function App() {
           </PopoverContent>
         </Popover>
         {loadingState.loadSuccess ? (
-          <Card>
-            <CardHeader>
-              <CardTitle>{dataGithubSelect?.name}</CardTitle>
-              <CardDescription>{dataGithubSelect?.description}</CardDescription>
-            </CardHeader>
-          </Card>
+          <a href={dataGithubSelect?.html_url} target="_blank" rel="noreferrer" className="w-full group">
+            <Card>
+              <CardHeader className='relative'>
+                <CardTitle>{dataGithubSelect?.name}</CardTitle>
+                <CardDescription>{dataGithubSelect?.description ? dataGithubSelect?.description : 'No description'}</CardDescription>
+                <ArrowRightIcon className="w-4 h-4 absolute top-1 right-3 group-hover:-rotate-45 duration-200" />
+              </CardHeader>
+              <CardFooter>
+                <div className="flex items-center gap-3 justify-between w-full">
+                    <small className='gap-0.5 flex items-baseline'>
+                      <div className={`rounded-full w-2 h-2 self-auto ${dataGithubSelect?.language}`}></div>
+                      <small className='truncate opacity-50'>{dataGithubSelect?.language}</small>
+                    </small>
+                    <small className="flex items-center gap-0.5">
+                      <StarFilledIcon className="w-3 h-3" />
+                      <small className='opacity-50 truncate'>{dataGithubSelect?.stargazers_count.toLocaleString('id-ID', {maximumFractionDigits: 0}).replace(/\./g, ',')}</small>
+                    </small>
+                    <small className="flex items-center gap-0.5">
+                      <GitForkIcon className="w-3 h-3" />
+                      <small className='opacity-50 truncate'>{dataGithubSelect?.forks_count.toLocaleString('id-ID', {maximumFractionDigits: 0}).replace(/\./g, ',')}</small>
+                    </small>
+                    <small className="flex items-center gap-0.5">
+                      <QuestionMarkCircledIcon className="w-3 h-3" />
+                      <small className='opacity-50 truncate'>{dataGithubSelect?.open_issues_count.toLocaleString('id-ID', {maximumFractionDigits: 0}).replace(/\./g, ',')}</small>
+                    </small>
+                </div>
+              </CardFooter>
+            </Card>
+          </a>
         ) : (
-          <div className={`${loadingState.loadError ? 'dark:bg-red-800 bg-red-500/50' : 'bg-neutral-200 dark:bg-neutral-800' }  h-20 w-full rounded-lg flex justify-center items-center text-sm lg:text-base`}>
+          <div className={`${loadingState.loadError ? 'dark:bg-red-800 bg-red-500/50' : 'bg-neutral-200 dark:bg-neutral-800' } h-20 md:h-32 w-60 md:w-80 rounded-lg flex justify-center items-center text-sm md:text-base flex-wrap`}>
             <span>{stateText}</span>
           </div>
         )}
-
+        {loadingState.loadSuccess && !loadingState.loadError && (
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => {
+              getDataGithubLanguage({param: value, type: 'query'}, abortControllerRef)
+            }}
+          >
+            Refresh
+          </Button>
+        )}
+        {loadingState.loadError && !loadingState.loadSuccess && (
+          <Button
+            variant="outline"
+            className={`w-full ${loadingState.loadError ? 'dark:bg-red-800 bg-red-500/50' : 'bg-neutral-200 dark:bg-neutral-800'}`}
+            onClick={() => {
+              getDataGithubLanguage({param: value, type: 'query'}, abortControllerRef)
+            }}
+          >
+            Click to retry
+          </Button>
+        )}
         <Switch 
           checked={theme === 'dark'} 
           onCheckedChange={() => setTheme(theme === 'dark' ? 'light' : 'dark')} 

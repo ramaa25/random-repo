@@ -13,6 +13,7 @@ export type LanguageSelectItems = {
   language: string,
   forks_count: number,
   open_issues_count: number,
+  html_url: string
 }
 
 export function cn(...inputs: ClassValue[]) {
