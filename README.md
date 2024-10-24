@@ -1,50 +1,19 @@
-# React + TypeScript + Vite
+# 📦 Random Repo Generator
+Welcome to Random Repo Generator! This repository is a fun playground for generating random content and experimenting with code ideas. Feel free to explore, clone, contribute, and enjoy the randomness!
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+# 🎯 Purpose
+This project is designed to:
 
-Currently, two official plugins are available:
+- Generate random files, code snippets, or anything else based on customizable input.
+- Provide a creative space for testing new concepts or technologies.
+- Serve as a source of inspiration for those looking for random data to work with!
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+# 💡 Inspiration
+Every output is unique and unpredictable—perfect for:
 
-## Expanding the ESLint configuration
+- Random code snippets for testing.
+- Mock data for your new projects.
+- Inspiring creative projects.
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
-
-- Configure the top-level `parserOptions` property like this:
-
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
-
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
-
-```js
-// eslint.config.js
-import react from 'eslint-plugin-react'
-
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: '18.3' } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
-  },
-})
-```
+# Base
+- For Sample project https://roadmap.sh/projects/github-random-repo
