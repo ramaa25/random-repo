@@ -11,14 +11,16 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { FixedSizeList } from 'react-window'
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from './components/ui/card'
 import { GitForkIcon } from 'lucide-react'
+import { toast } from 'sonner'
+import { Toaster } from './components/ui/sonner'
 
 function App() {
   const { setTheme, theme } = useTheme()
   const [loadingState, setLoadingState] = useState({
-    loadText: false,
     loadError: false,
     loadSuccess: false,
-    loadDataSelect: false
+    loadDataSelect: false,
+    disableLimit: false
   })
   const [stateText, setStateText] = useState('')
   const [languages, setLanguages] = useState<languagesType>([])
@@ -26,7 +28,6 @@ function App() {
   const [open, setOpen] = useState(false)
   const [value, setValue] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
-  const [perPage, setPerPage] = useState(1)
 
   const abortControllerRef = useRef(null);
 
@@ -54,13 +55,12 @@ function App() {
   const controller = new AbortController();
   abortControllerRef.current = controller;  // Simpan controller untuk request ini
   const signal = controller.signal;
-
     if (type === 'query') {
       setStateText('Loading, please wait...')
       setLoadingState({ ...loadingState, loadSuccess: false, loadDataSelect: true, loadError: false })
-      const randomPage = Math.floor(Math.random() * 30)
+      const randomPage = Math.floor(Math.random() * 1000) - 1
       try {
-        const response = await fetch(`https://api.github.com/search/repositories?q=language:${param}&per_page=${perPage}&page=${randomPage}`,
+        const response = await fetch(`https://api.github.com/search/repositories?q=language:${param}&per_page=1&page=${randomPage}`,
           {
             method: "GET",
             headers: {
@@ -71,18 +71,21 @@ function App() {
         );
         if (!response.ok) {
           setLoadingState({ ...loadingState, loadError: true, loadSuccess: false })
-          setPerPage(1)
           setStateText('Error fetching repositories')
-          throw new Error(`HTTP error! Status: ${response.status}`);
+          if (response.status === 403) {
+            toast("Limit reached!", {
+              description: "Please try again a few second later",
+              position: "bottom-center",
+              className: "text-start",
+              action: {
+                label: 'Dismiss',
+                onClick: () => toast.dismiss(),
+              },
+            })
+          }
         }
         else if (response.ok) {
           const data = await response.json();
-          const maxPerPage = Math.round(data.total_count / 1000 - 1) // 1000 is the limit per page from github
-          if(value === param && perPage <= maxPerPage) {
-            setPerPage((prev) => prev + 1)
-          } else {
-            setPerPage(1)
-          }
           setLoadingState({ ...loadingState, loadSuccess: true, loadError: false })
           setDataGithubSelect(data.items[0])
         }
@@ -90,7 +93,6 @@ function App() {
         console.error("Error fetching languages:", error);
         setLoadingState({ ...loadingState, loadError: true, loadSuccess: false })
         setStateText('Error fetching repositories')
-        setPerPage(1)
       }
     }
   };
@@ -111,7 +113,7 @@ function App() {
       </div>
       <div className="flex flex-col gap-3 items-center">
       <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger asChild disabled={loadingState.loadDataSelect}>
+          <PopoverTrigger asChild disabled={loadingState.loadDataSelect || loadingState.disableLimit}>
             <Button
               variant="outline"
               role="combobox"
@@ -203,6 +205,7 @@ function App() {
         )}
         {loadingState.loadSuccess && !loadingState.loadError && (
           <Button
+            disabled={loadingState.disableLimit}
             variant="outline"
             className="w-full"
             onClick={() => {
@@ -214,6 +217,7 @@ function App() {
         )}
         {loadingState.loadError && !loadingState.loadSuccess && (
           <Button
+            disabled={loadingState.disableLimit}
             variant="outline"
             className={`w-full ${loadingState.loadError ? 'dark:bg-red-800 bg-red-500/50' : 'bg-neutral-200 dark:bg-neutral-800'}`}
             onClick={() => {
@@ -227,8 +231,8 @@ function App() {
           checked={theme === 'dark'} 
           onCheckedChange={() => setTheme(theme === 'dark' ? 'light' : 'dark')} 
         />
-        
       </div>
+      <Toaster />
     </div>
   )
 }
